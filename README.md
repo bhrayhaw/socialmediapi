@@ -20,7 +20,6 @@ This is a RESTful API designed for building social media applications using Djan
   - [Following/Followers](#followingfollowers)
 - [Sample Requests](#sample-requests)
 - [Contributing](#contributing)
-- [License](#license)
 
 ## Features
 
