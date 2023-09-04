@@ -58,6 +58,7 @@ Before you start using the API, ensure you have the following prerequisites:
    ```
 4. Apply database migrations
    ```bash
+   python manage.py makemigrations
    python manage.py migrate
    ```
 5. Create a superuser to access the admin panel
