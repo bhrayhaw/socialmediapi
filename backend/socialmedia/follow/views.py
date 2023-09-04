@@ -1,85 +1,28 @@
-# # views to follow and unfollow users using viewsets
-# from rest_framework import viewsets
-# from rest_framework.response import Response
-# from rest_framework import status
-# from rest_framework.permissions import IsAuthenticated
-# from .models import UserFollowers, UserFollowing
-# from .serializers import UserFollowersSerializer, UserFollowingSerializer
+from django.shortcuts import render, get_object_or_404
+from rest_framework import viewsets, permissions, serializers
+from .serializers import FollowSerializer
+from django.contrib.auth.models import User
+from .models import Follow
+from .permissions import hasFollowedOrReadOnly
 
+# Create your views here.
+class FollowViewSet(viewsets.ModelViewSet):
+    queryset = Follow.objects.all()
+    serializer_class = FollowSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, hasFollowedOrReadOnly]
 
-# class FollowViewSet(viewsets.ModelViewSet):
-#     """
-#     Viewset to follow users
-#     """
-#     queryset = UserFollowers.objects.all()
-#     serializer_class = UserFollowersSerializer
-#     permission_classes = [IsAuthenticated]
+    def perform_create(self, serializer):
+        owner_instance = get_object_or_404(User,pk=self.request.data['owner'])
 
-#     def create(self, request, *args, **kwargs):
-#         """
-#         Create a follower
-#         """
-#         serializer = UserFollowersSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save(user=request.user)
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def get_queryset(self):
-#         """
-#         Get all followers
-#         """
-#         return self.queryset.filter(user=self.request.user)
-
-#     def destroy(self, request, *args, **kwargs):
-#         """
-#         Delete a follower
-#         """
-#         instance = self.get_object()
-#         self.perform_destroy(instance)
-#         return Response(status=status.HTTP_204_NO_CONTENT)
-
-#     def perform_destroy(self, instance):
-#         """
-#         Perform destroy
-#         """
-#         instance.delete()
-
-
-# class UnfollowViewSet(viewsets.ModelViewSet):
-#     """
-#     Viewset to unfollow users
-#     """
-#     queryset = UserFollowing.objects.all()
-#     serializer_class = UserFollowingSerializer
-#     permission_classes = [IsAuthenticated]
-
-#     def create(self, request, *args, **kwargs):
-#         """
-#         Create a following
-#         """
-#         serializer = UserFollowingSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save(user=request.user)
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def get_queryset(self):
-#         """
-#         Get all followings
-#         """
-#         return self.queryset.filter(user=self.request.user)
-
-#     def destroy(self, request, *args, **kwargs):
-#         """
-#         Delete a following
-#         """
-#         instance = self.get_object()
-#         self.perform_destroy(instance)
-#         return Response(status=status.HTTP_204_NO_CONTENT)
-
-#     def perform_destroy(self, instance):
-#         """
-#         Perform destroy
-#         """
-#         instance.delete()
+        if self.request.data['follow']:
+            already_followed = Follow.objects.filter(owner=owner_instance, follow=self.request.user).exists()
+            if already_followed:
+                raise serializers.ValidationError({'message': 'You have already followed this user'})
+            else:
+                serializer.save(follow=self.request.user, owner=owner_instance)
+        else:
+            already_unfollowed = Follow.objects.filter(owner=owner_instance, unfollow=self.request.user).exists()
+            if already_unfollowed:
+                raise serializers.ValidationError({'message': 'You have already unfollowed this user'})
+            else:
+                serializer.save(unfollow =self.request.user, owner=owner_instance)
