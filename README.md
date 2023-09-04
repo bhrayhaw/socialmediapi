@@ -54,7 +54,7 @@ Before you start using the API, ensure you have the following prerequisites:
    ```
 3. Install the required dependencies
    ```bash
-   pip install -r requirements
+   pip install -r requirements.txt
    ```
 4. Apply database migrations
    ```bash
