@@ -10,7 +10,7 @@ class GroupViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        # Set the group creator to the current user
+        # Set the group creator to the current user 
         serializer.save(created_by=self.request.user)
 
     @action(detail=True, methods=['post'])
