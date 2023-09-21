@@ -1,12 +1,11 @@
-# # urls for groups and group members
-# from django.urls import path
-# from group.views import UserGroupsViewSet, GroupMembersViewSet
+# urls.py
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import GroupViewSet
 
-# urlpatterns = [
-#     path('usergroups/', UserGroupsViewSet.as_view({'get': 'list'})),
-#     path('usergroups/<int:pk>/',
-#          UserGroupsViewSet.as_view({'get': 'retrieve'})),
-#     path('groupmembers/', GroupMembersViewSet.as_view({'get': 'list'})),
-#     path('groupmembers/<int:pk>/',
-#          GroupMembersViewSet.as_view({'get': 'retrieve'})),
-# ]
+router = DefaultRouter()
+router.register(r'groups', GroupViewSet)
+
+urlpatterns = [
+    path('', include(router.urls)),
+]

@@ -1,87 +1,58 @@
-# # views to create, manage, join and leave groups using viewsets
-# from rest_framework import viewsets
-# from rest_framework.response import Response
-# from rest_framework import status
-# from rest_framework.permissions import IsAuthenticated
-# from .models import UserGroups, GroupMembers
-# from .serializers import UserGroupsSerializer, GroupMembersSerializer
+from rest_framework import viewsets, status, permissions
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from .models import Group, GroupMember
+from .serializers import GroupSerializer, GroupMemberSerializer
 
+class GroupViewSet(viewsets.ModelViewSet):
+    queryset = Group.objects.all()
+    serializer_class = GroupSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-# class UserGroupsViewSet(viewsets.ModelViewSet):
-#     """
-#     Viewset to create, manage, join and leave groups
-#     """
-#     queryset = UserGroups.objects.all()
-#     serializer_class = UserGroupsSerializer
-#     permission_classes = [IsAuthenticated]
+    def perform_create(self, serializer):
+        # Set the group creator to the current user
+        serializer.save(created_by=self.request.user)
 
-#     def create(self, request, *args, **kwargs):
-#         """
-#         Create a group
-#         """
-#         serializer = UserGroupsSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save(user=request.user)
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    @action(detail=True, methods=['post'])
+    def join(self, request, pk=None):
+        group = self.get_object()
+        user = request.user
 
-#     def get_queryset(self):
-#         """
-#         Get all groups
-#         """
-#         return self.queryset.filter(user=self.request.user)
+        # Check if the user is already a member of the group
+        if GroupMember.objects.filter(group=group, member=user).exists():
+            return Response({'detail': 'You are already a member of this group.'}, status=status.HTTP_400_BAD_REQUEST)
 
-#     def destroy(self, request, *args, **kwargs):
-#         """
-#         Delete a group
-#         """
-#         instance = self.get_object()
-#         self.perform_destroy(instance)
-#         return Response(status=status.HTTP_204_NO_CONTENT)
+        GroupMember.objects.create(group=group, member=user, role='member')
+        return Response({'detail': 'You have joined the group successfully.'}, status=status.HTTP_201_CREATED)
 
-#     def perform_destroy(self, instance):
-#         """
-#         Perform destroy
-#         """
-#         instance.delete()
+    @action(detail=True, methods=['post'])
+    def leave(self, request, pk=None):
+        group = self.get_object()
+        user = request.user
+        try:
+            member = GroupMember.objects.get(group=group, member=user)
+            member.delete()
+            return Response({'detail': 'You have left the group successfully.'}, status=status.HTTP_204_NO_CONTENT)
+        except GroupMember.DoesNotExist:
+            return Response({'detail': 'You are not a member of this group.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=['post'])
+    def kick(self, request, pk=None, member_id=None):
+        group = self.get_object()
+        user = request.user
 
-# class GroupMembersViewSet(viewsets.ModelViewSet):
-#     """
-#     Viewset to join and leave groups
-#     """
-#     queryset = GroupMembers.objects.all()
-#     serializer_class = GroupMembersSerializer
-#     permission_classes = [IsAuthenticated]
+        # Check if the requester is the group creator
+        if not GroupMember.objects.filter(group=group, member=user, role='creator').exists():
+            return Response({'detail': 'You do not have permission to kick members.'}, status=status.HTTP_403_FORBIDDEN)
 
-#     def create(self, request, *args, **kwargs):
-#         """
-#         Create a group member
-#         """
-#         serializer = GroupMembersSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save(member=request.user)
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            member = GroupMember.objects.get(group=group, id=member_id)
 
-#     def get_queryset(self):
-#         """
-#         Get all group members
-#         """
-#         return self.queryset.filter(member=self.request.user)
+            # Check if the member to be kicked is not the group creator
+            if member.role == 'creator':
+                return Response({'detail': 'You cannot kick the group creator.'}, status=status.HTTP_400_BAD_REQUEST)
 
-#     def destroy(self, request, *args, **kwargs):
-#         """
-#         Delete a group member
-#         """
-#         instance = self.get_object()
-#         self.perform_destroy(instance)
-#         return Response(status=status.HTTP_204_NO_CONTENT)
-
-#     def perform_destroy(self, instance):
-#         """
-#         Perform destroy
-#         """
-#         instance.delete()
-
-
+            member.delete()
+            return Response({'detail': 'The member has been kicked out of the group.'}, status=status.HTTP_204_NO_CONTENT)
+        except GroupMember.DoesNotExist:
+            return Response({'detail': 'Member not found in the group.'}, status=status.HTTP_404_NOT_FOUND)
